@@ -33,10 +33,18 @@
 	</head>
 	<body>
 		<div class="lists-wrapper">
+			<h4>TODO Lists</h4>
+			<form id='list-form'>
+	        <input type="text" id="name" name="name" />
+	        <input type="submit" value="Create" />
+	    	</form>
+	    	<div id="error" class="hidden">Something went wrong!!</div>
 			<ul id="lists">
 				{% for list in lists %}
 				<li>
+					<input class="check-todolist" data-id="{{list.id}}" type="checkbox" {% if list.completed %} checked {% endif %}/>
 					<a href='/lists/{{list.id}}'>{{list.name}}</a>
+					<button class="delete-list" data-id="{{list.id}}">&cross;</button>
 				</li>
 				{% endfor %}
 			</ul>
@@ -44,6 +52,7 @@
 		<div class="todos-wrapper">
 			<h4>{{active_list.name}}</h4>
 			<form id='form'>
+			<input id="list_id" type="hidden" value="{{ active_list.id }}">
 	        <input type="text" id="description" name="description" />
 	        <input type="submit" value="Create" />
 	    	</form>
@@ -106,7 +115,8 @@
 				fetch('/todos/create', {
 					method: 'POST',
 					body: JSON.stringify({
-						'description': document.getElementById('description').value
+						'description': document.getElementById('description').value,
+						'list_id': document.getElementById('list_id').value
 					}),
 					headers: {
 						'Content-Type': 'application/json'
@@ -138,6 +148,112 @@
 					document.getElementById('error').className = '';
 				})
 			}
+
+			//////////////////////////////////////////////////
+			document.getElementById('list-form').onsubmit = function(e) {
+				e.preventDefault();
+				fetch('/lists/createList', {
+					method: 'POST',
+					body: JSON.stringify({
+						'name': document.getElementById('name').value
+					}),
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				}).then(function(response) {
+					return response.json();
+				}).then(function(jsonResponse) {
+					console.log(jsonResponse);
+					const liItem = document.createElement('LI');
+
+					const checkbox = document.createElement('input');
+					checkbox.className = 'check-todolist';
+					checkbox.type = 'checkbox';
+					checkbox.setAttribute('data-id', jsonResponse.id);
+					liItem.appendChild(checkbox);
+
+					const link = document.createElement('a');
+					link.href = '/lists/'+jsonResponse.id
+					link.innerHTML = " "+jsonResponse.name
+					liItem.appendChild(link);
+
+					const cross = document.createElement('button');
+					cross.className = 'delete-list';
+					cross.setAttribute('data-id', jsonResponse.id);
+					cross.innerHTML = '&cross;';
+					liItem.appendChild(cross)
+
+					document.getElementById('lists').appendChild(liItem);
+					document.getElementById('error').className = 'hidden';
+				}).catch(function() {
+					document.getElementById('error').className = '';
+				})
+			}
+
+			const list_crosses = document.querySelectorAll('.delete-list');
+			for(let i=0;i<list_crosses.length;i++) {
+				const list_cross = list_crosses[i];
+				list_cross.onclick= function(e) {
+					console.log('event', e);
+					const listId = e.target.dataset['id'];
+					fetch('/lists/'+listId+'/delete', {
+						method: 'DELETE'
+					}).then(function() {
+						document.getElementById('error').className = 'hidden';
+						const item = e.target.parentElement;
+            			item.remove();
+
+            			const todoitem = document.getElementById('todos');
+            			const todoWrapper = todoitem.parentElement;
+            			todoWrapper.remove();
+
+            			// for (let i = 0; i < todoCheckboxes.length; i++) {
+		             //              const checkbox = todoCheckboxes[i];
+
+		             //              const item = checkbox.parentElement;
+            			// 		  item.remove();
+		             //          }
+
+					}).catch(function() {
+						document.getElementById('error').className = '';
+					});
+				}
+			}
+
+			const listCheckboxes = document.querySelectorAll('.check-todolist');
+		      for (let i = 0; i < listCheckboxes.length; i++) {
+		          const checkbox = listCheckboxes[i];
+
+		          checkbox.onchange = function (e) {
+		          	  const checked = e.target.checked
+		              
+		                  const listId = e.target.dataset.id;
+
+		                  fetch('/lists/' + listId + '/setCompleted', {
+		                      method: 'POST',
+		                      headers: {
+		                          'Content-Type': 'application/json'
+		                      },
+		                      body: JSON.stringify({
+		                      	'checked': checked
+		                      })
+		                  })
+		                  .then(function (jsonResponse) {
+		                      document.getElementById('error').className = 'hidden';
+
+		                      const todoCheckboxes = document.querySelectorAll('.check-completed');
+
+		                      for (let i = 0; i < todoCheckboxes.length; i++) {
+		                          const checkbox = todoCheckboxes[i];
+
+		                          checkbox.checked = checked;
+		                      }
+		                  })
+		                  .catch(function () {
+		                      document.getElementById('error').className = '';
+		                  })
+		          }
+		      }
 		</script>
 	</body>
 </html>
